@@ -4,6 +4,9 @@ ChainClient:
   SdkConfigPath: "./conf/lcago_sdk.yml"
   DefaultHeight: 60000
   ContractName: "cc4"
+# 碳资产gateway配置信息
+Gateway:
+  Addr: "127.0.0.1:30004"
 # mysql 数据库
 MySQL:
   Host: 192.168.0.91

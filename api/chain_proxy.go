@@ -27,6 +27,7 @@ func Auth(ctx *gin.Context) {
 	if len(req) == 0 {
 		ctx.JSON(http.StatusOK, gin.H{
 			"code": -1,
+			"msg":  "request is nil",
 		})
 		return
 	}
@@ -35,6 +36,7 @@ func Auth(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusOK, gin.H{
 			"code": -1,
+			"msg":  err.Error(),
 		})
 		return
 	}

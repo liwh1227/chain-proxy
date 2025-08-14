@@ -12,7 +12,11 @@ package model
 // 用户 balance 在保存到该表之前，发生了变动（除非该用户在做该操作时，同步是进行收集或兑换操作）
 // 如果要防止该情况的出现，可以加一步同步完后的校验接口（获取 gateway 余额？）
 
-const TableSyncEventLog = "sync_event_log"
+const (
+	TableSyncEventLog = "sync_event_log"
+	SyncStatusCol     = "sync_status"
+	RetryCountCol     = "retry_count"
+)
 
 type SyncEventLog struct {
 	CommonField

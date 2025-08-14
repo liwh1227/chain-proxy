@@ -1,5 +1,6 @@
 package service
 
+// 监听合约中碳积分的变动事件，并同步到接收方服务
 import (
 	"chain-proxy/chain"
 	"chain-proxy/config"
@@ -10,7 +11,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"time"
 )
 
 func HandleCollectEvent(ctx context.Context) error {
@@ -24,7 +27,7 @@ func HandleCollectEvent(ctx context.Context) error {
 		return err
 	}
 
-	evCh, err := chain.ListenContractEvents(ctx, start, -1, config.GetConfigInstance().ChainClient.ContractName, CarbonIntegralChangeEvType)
+	evCh, err := chain.ListenContractEvents(ctx, start, -1, config.GetConfigInstance().ChainClient.ContractName, CarbonIntegralChangeTopic)
 	if err != nil {
 		return err
 	}
@@ -131,7 +134,7 @@ func handleContractEvent(ev interface{}) error {
 		BlockHeight:  evData.Height,
 		BalanceAfter: evData.Balance,
 		ChangeValue:  evData.ChangeValue,
-		Topic:        CollectEvType,
+		Topic:        CarbonIntegralChangeTopic,
 		TxId:         evData.TxId,
 		ContractName: config.GetConfigInstance().ChainClient.ContractName,
 		SyncStatus:   int(StatusPending),
@@ -148,6 +151,8 @@ func handleContractEvent(ev interface{}) error {
 		return err
 	}
 
+	err = pushEvent(sr.ID, ev)
+
 	return nil
 }
 
@@ -155,7 +160,65 @@ func handleContractEvent(ev interface{}) error {
 // 1. 推送的消息队列，消息使用方自行订阅使用
 // 2. 主动调用某个接口方法，将数据传送过去；
 // 3. 定时任务间隔获取数据库数据并传送；
-func pushEvent(ev []byte) error {
-	fmt.Println("push event:", string(ev))
+// pushEvent: Combined Tactical and Strategic Retry Logic
+func pushEvent(id int, ev interface{}) error {
+	// 1. 标记任务开始处理 (乐观更新)
+	err := db.GetGormDb().
+		Table(model.TableSyncEventLog).
+		Where("id = ?", id).
+		Update(model.SyncStatusCol, StatusSent).Error
+	if err != nil {
+		return fmt.Errorf("failed to mark event as sent for id %d: %w", id, err)
+	}
+
+	// 2. 进入内部的“战术重试”循环
+	var handleErr error
+	for attempt := 1; attempt <= 3; attempt++ {
+		handleErr = mockHandleEvent(ev)
+		if handleErr == nil {
+			break // 跳出循环
+		}
+		if attempt < 3 {
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+
+	// 3. 根据内部重试循环的结果，更新最终状态
+	tx := db.GetGormDb().
+		Table(model.TableSyncEventLog).
+		Where("id = ?", id)
+
+	if handleErr == nil {
+		fmt.Printf("[Strategic] Event id %d handled successfully.", id)
+		updates := map[string]interface{}{
+			model.SyncStatusCol: StatusSuccess,
+			model.RetryCountCol: 0,
+		}
+		err = tx.Updates(updates).Error
+		if err != nil {
+			return fmt.Errorf("event handled, but failed to mark as success for id %d: %w", id, err)
+		}
+		return nil
+	}
+
+	// a. 原子地增加“战略失败”计数器
+	updateResult := tx.Update(model.RetryCountCol, gorm.Expr(model.RetryCountCol, " + 1"))
+	if updateResult.Error != nil {
+		return fmt.Errorf("failed to increment strategic failure count for id %d: %w", id, updateResult.Error)
+	}
+
+	// b. 检查是否达到战略失败的阈值
+	err = tx.Where(model.RetryCountCol+" >= ?", 3).
+		Update(model.SyncStatusCol, StatusFailed).Error
+	if err != nil {
+		return fmt.Errorf("failed to mark event as failed after reaching max strategic retries for id %d: %w", id, err)
+	}
+
+	return fmt.Errorf("all %d tactical retries failed: %w", 3, handleErr)
+}
+
+func mockHandleEvent(ev interface{}) error {
 	return nil
 }
+
+// 积分拆分的事件怎么处理？

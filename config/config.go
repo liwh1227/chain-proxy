@@ -13,6 +13,7 @@ import (
 type Config struct {
 	path        string
 	ChainClient *ChainClient `yaml:"chainClient"`
+	Gateway     *Gateway     `yaml:"gateway"`
 	MySQL       Mysql        `yaml:"mysql"` // 数据库
 	Gorm        Gorm         `yaml:"gorm"`  // gorm
 }
@@ -22,6 +23,10 @@ type ChainClient struct {
 	SdkConfigPath string `json:"sdkConfigPath"`
 	DefaultHeight int64  `json:"defaultHeight"`
 	ContractName  string `json:"contractName"`
+}
+
+type Gateway struct {
+	Addr string `json:"addr"`
 }
 
 var (

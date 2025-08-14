@@ -119,6 +119,10 @@ func getLatestWalletInfo(wresp *WalletResp) (*WalletInfoDetail, error) {
 		return nil, errors.New("walletResp is nil")
 	}
 
+	if len(wresp.WalletHistoryInfo) == 0 {
+		return nil, errors.New("wallet history info is nil")
+	}
+
 	sort.Slice(wresp.WalletHistoryInfo, func(i, j int) bool {
 		return wresp.WalletHistoryInfo[i].BlockHeight > wresp.WalletHistoryInfo[j].BlockHeight
 	})

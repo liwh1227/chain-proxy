@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"bytes"
+	"chain-proxy/config"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,9 +10,9 @@ import (
 	"time"
 )
 
-const basicAddr = "http://127.0.0.1:30004/carbonIntegral"
-
 const (
+	httpProtocol    = "http://"
+	basicMethod     = "carbonIntegral"
 	getWalletMethod = "getWalletHistoryInfo"
 	getAddrMethod   = "getUserAddr"
 )
@@ -39,7 +40,7 @@ func GetUserAddr(userId string) (interface{}, error) {
 		return nil, err
 	}
 
-	respBytes, err := post(fmt.Sprintf("%s/%s", basicAddr, getAddrMethod), reqBytes)
+	respBytes, err := post(fmt.Sprintf("%s%s/%s/%s", httpProtocol, config.GetConfigInstance().Gateway.Addr, basicMethod, getAddrMethod), reqBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +63,7 @@ func GetWalletInfo(addr string) (interface{}, error) {
 		return nil, err
 	}
 
-	respBytes, err := post(fmt.Sprintf("%s/%s", basicAddr, getWalletMethod), reqBytes)
+	respBytes, err := post(fmt.Sprintf("%s%s/%s/%s", httpProtocol, config.GetConfigInstance().Gateway.Addr, basicMethod, getWalletMethod), reqBytes)
 	if err != nil {
 		return nil, err
 	}
